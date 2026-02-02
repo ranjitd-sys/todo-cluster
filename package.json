@@ -8,5 +8,14 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@effect/cluster": "^0.56.1",
+    "@effect/platform": "^0.94.2",
+    "@effect/platform-bun": "^0.87.1",
+    "@effect/platform-node": "^0.104.1",
+    "@effect/rpc": "^0.73.0",
+    "@effect/sql-pg": "^0.50.1",
+    "effect": "^3.19.15"
   }
 }
