@@ -8,10 +8,5 @@
   },
   "peerDependencies": {
     "typescript": "^5"
-  },
-  "dependencies": {
-    "@effect/cluster": "^0.56.1",
-    "@effect/platform-bun": "^0.87.1",
-    "effect": "^3.19.15"
   }
 }
