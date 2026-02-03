@@ -1,8 +1,9 @@
-import { Entity, SingleRunner, ClusterSchema, Singleton, Sharding } from "@effect/cluster"
+import { Entity, SingleRunner, ShardingConfig, ClusterSchema, Singleton, Sharding } from "@effect/cluster"
+import { shards } from "@effect/cluster/ClusterMetrics"
 import { BunClusterSocket, BunRuntime } from "@effect/platform-bun"
 import { Rpc } from "@effect/rpc"
 import { Effect, Layer, Schema, Logger, LogLevel, Array, Mailbox, Stream} from "effect"
-import { MessageStorage } from "@effect/cluster/MessageStorage"
+
 
 const Counter = Entity.make("Counter", [
   Rpc.make("Increment", {
@@ -116,14 +117,16 @@ const LogConfig = Singleton.make(
   })
 )
 const Entities  = Layer.mergeAll(
+  Increment,
   LogConfig,
   CounterLive,
   Decrement,
-  Increment,
   ...SendStreams
 )
 
-const shardLive = BunClusterSocket.layer({storage:"local",shardingConfig:{runnerShardWeight:1}});
+
+
+const shardLive = BunClusterSocket.layer({storage:"local", shardingConfig:{}});
 
 Entities.pipe(
   Layer.provide(shardLive),
