@@ -16,7 +16,6 @@
     "@effect/platform-node": "^0.104.1",
     "@effect/rpc": "^0.73.0",
     "@effect/sql-pg": "^0.50.1",
-    "cluster": ".",
     "effect": "^3.19.15"
   }
 }
