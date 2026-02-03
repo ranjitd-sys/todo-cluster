@@ -126,7 +126,7 @@ const Entities  = Layer.mergeAll(
 
 
 
-const shardLive = BunClusterSocket.layer({storage:"local", shardingConfig:{}});
+const shardLive = BunClusterSocket.layer({storage:"local", shardingConfig:{shardGroups:["Todo"], shardsPerGroup:10}});
 
 Entities.pipe(
   Layer.provide(shardLive),
