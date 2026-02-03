@@ -1,10 +1,8 @@
-import { Entity, SingleRunner, ClusterSchema, Singleton } from "@effect/cluster"
+import { Entity, SingleRunner, ClusterSchema, Singleton, Sharding } from "@effect/cluster"
 import { BunClusterSocket, BunRuntime } from "@effect/platform-bun"
 import { Rpc } from "@effect/rpc"
 import { Effect, Layer, Schema, Logger, LogLevel, Array, Mailbox, Stream} from "effect"
-import { func } from "effect/FastCheck"
-import { increment } from "effect/MutableRef"
-
+import { MessageStorage } from "@effect/cluster/MessageStorage"
 
 const Counter = Entity.make("Counter", [
   Rpc.make("Increment", {
@@ -20,7 +18,7 @@ const Counter = Entity.make("Counter", [
     stream:true
   })
 
-]).annotateRpcs(ClusterSchema.Persisted, true)
+]).annotateRpcs(ClusterSchema.Persisted, false)
 
 const CounterLive = Counter.toLayer(
   Effect.gen(function* () {
@@ -29,27 +27,44 @@ const CounterLive = Counter.toLayer(
 
     return {
       Increment: Effect.fnUntraced(function* ({ payload: { amount } }) {
-        yield* Effect.log("Increment", address.toString())
-        state += amount
-        return state
+        try{
+          yield* Effect.log("Increment", address.toString())
+          state += amount
+          return state
+        }
+        catch(e){
+          console.log(e);
+          return state;
+        }
       }),
       Decrement: Effect.fnUntraced(function* ({ payload: { amount } }) {
-        yield* Effect.log("Decrement", address.toString())
-        state -= amount
-        return state
+        try{
+          yield* Effect.log("Decrement", address.toString())
+          state -= amount
+          return state
+        }
+        catch(e){
+          console.log(e)
+          return state
+        }
       }),
     
       Stream: Effect.fnUntraced(function* () {
         const mailbox = yield* Mailbox.make<number>()
-
         let i = 0
-        yield* Effect.suspend(() => mailbox.offer(i++)).pipe(
-          Effect.andThen(Effect.sleep(1000)),
-          Effect.forever,
-          Effect.forkScoped,
-        )
-
-        return mailbox
+        try{
+          yield* Effect.suspend(() => mailbox.offer(i++)).pipe(
+            Effect.andThen(Effect.sleep(1000)),
+            Effect.forever,
+            Effect.forkScoped,
+          )
+  
+          return mailbox
+        }
+        catch(e){
+          console.log(e)
+          return mailbox;
+        }
       }),
   }}),
   {maxIdleTime:"10 seconds", concurrency:100},
@@ -61,7 +76,7 @@ const Increment = Singleton.make(
     const makeClinet = yield* Counter.client;
     const client = makeClinet("Client-1");
     console.log("Increment");
-    yield* client.Increment({amount:4})
+    yield* client.Increment({amount:1})
   })
 )
 
@@ -81,7 +96,7 @@ const SendStreams = Array.makeBy(1, (i) =>
     Effect.gen(function* () {
       const makeClient = yield* Counter.client
       console.log("SendStreams started")
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 1; i++) {
         const client = makeClient(`client-${i}`)
         yield* client.Stream().pipe(
           Stream.runForEach((i) => Effect.log("stream", i)),
@@ -92,14 +107,23 @@ const SendStreams = Array.makeBy(1, (i) =>
   ),
 )
 
+
+const LogConfig = Singleton.make(
+  "log-config",
+  Effect.gen(function* () {
+    const sharding = yield* Sharding.Sharding;
+    console.log("CLUSTER STARTING WITH SHARDS:", sharding.activeEntityCount);
+  })
+)
 const Entities  = Layer.mergeAll(
+  LogConfig,
   CounterLive,
-  Increment,
   Decrement,
+  Increment,
   ...SendStreams
 )
 
-const shardLive = BunClusterSocket.layer({storage:"local"});
+const shardLive = BunClusterSocket.layer({storage:"local",shardingConfig:{runnerShardWeight:1}});
 
 Entities.pipe(
   Layer.provide(shardLive),
